@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OpenClaw API
  * Description: WordPress REST API for OpenClaw remote site management
- * Version: 2.0.4
+ * Version: 2.0.5
  * Author: OpenClaw
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -157,7 +157,7 @@ add_action('rest_api_init', function() {
  * Supports legacy plaintext tokens for migration
  */
 function openclaw_verify_token() {
-    $header = isset($_SERVER['HTTP_X_OPENCLAW_TOKEN']) ? $_SERVER['HTTP_X_OPENCLAW_TOKEN'] : '';
+    $header = isset($_SERVER['HTTP_X_OPENCLAW_TOKEN']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_OPENCLAW_TOKEN'])) : '';
     
     if (empty($header)) {
         return new WP_Error('missing_header', 'Missing X-OpenClaw-Token header', ['status' => 401]);
@@ -192,7 +192,7 @@ function openclaw_verify_token() {
 
 // Ping endpoint
 function openclaw_ping() {
-    return ['status' => 'ok', 'version' => '2.0.4', 'time' => current_time('mysql')];
+    return ['status' => 'ok', 'version' => '2.0.5', 'time' => current_time('mysql')];
 }
 
 // Site info
@@ -971,10 +971,15 @@ function openclaw_api_admin_page() {
             <p class="submit">
                 <input type="submit" value="Save Capabilities" class="button button-primary">
                 <button type="button" class="button" onclick="document.querySelectorAll('[name^=\'openclaw_cap_\']').forEach(cb => cb.checked = false);" style="margin-left:5px;">Disable All</button>
-                <button type="button" class="button" onclick="
-                    <?php foreach ($defaults as $k => $v): ?>document.querySelector('[name=\'openclaw_cap_<?php echo $k; ?>\']').checked = <?php echo $v ? 'true' : 'false'; ?>;
+                <button type="button" class="button" id="reset-defaults-btn" style="margin-left:5px;">Reset to Defaults</button>
+                <script>
+                document.getElementById('reset-defaults-btn').addEventListener('click', function() {
+                    <?php foreach ($defaults as $k => $v): ?>
+                    var el = document.querySelector('[name="openclaw_cap_<?php echo esc_js($k); ?>"]');
+                    if (el) el.checked = <?php echo $v ? 'true' : 'false'; ?>;
                     <?php endforeach; ?>
-                " style="margin-left:5px;">Reset to Defaults</button>
+                });
+                </script>
             </p>
         </form>
         

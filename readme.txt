@@ -3,7 +3,7 @@ Contributors: openclaw
 Tags: api, rest, remote, management, openclaw
 Requires at least: 5.0
 Tested up to: 6.9
-Stable tag: 2.0.4
+Stable tag: 2.0.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -130,6 +130,11 @@ curl -X POST \
 | DELETE | `/plugins/{slug}` | plugins_delete | Delete plugin |
 
 == Changelog ==
+
+= 2.0.5 =
+* SECURITY: Added input sanitization for API token header (wp_unslash, sanitize_text_field)
+* SECURITY: Added output escaping for JavaScript in admin page (esc_js)
+* Fixed WordPress coding standards compliance warnings
 
 = 2.0.4 =
 * Removed .gitignore (WordPress.org directory requirement)
