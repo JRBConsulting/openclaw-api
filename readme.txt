@@ -2,8 +2,8 @@
 Contributors: openclaw
 Tags: api, rest, remote, management, openclaw
 Requires at least: 5.0
-Tested up to: 6.4
-Stable tag: 2.0.3
+Tested up to: 6.9
+Stable tag: 2.0.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -130,6 +130,10 @@ curl -X POST \
 | DELETE | `/plugins/{slug}` | plugins_delete | Delete plugin |
 
 == Changelog ==
+
+= 2.0.4 =
+* Removed .gitignore (WordPress.org directory requirement)
+* Updated "Tested up to" to WordPress 6.9
 
 = 2.0.3 =
 * Changed license from AGPLv3.0 to GPLv2 or later for WordPress compatibility

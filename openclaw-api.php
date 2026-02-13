@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OpenClaw API
  * Description: WordPress REST API for OpenClaw remote site management
- * Version: 2.0.3
+ * Version: 2.0.4
  * Author: OpenClaw
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -192,7 +192,7 @@ function openclaw_verify_token() {
 
 // Ping endpoint
 function openclaw_ping() {
-    return ['status' => 'ok', 'version' => '2.0.3', 'time' => current_time('mysql')];
+    return ['status' => 'ok', 'version' => '2.0.4', 'time' => current_time('mysql')];
 }
 
 // Site info
