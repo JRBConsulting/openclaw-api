@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OpenClaw API
  * Description: WordPress REST API for OpenClaw remote site management
- * Version: 2.0.0
+ * Version: 2.0.1
  * Author: OpenClaw
  */
 
@@ -151,6 +151,7 @@ add_action('rest_api_init', function() {
 
 /**
  * Verify API token from X-OpenClaw-Token header
+ * Uses hash_equals to prevent timing attacks
  */
 function openclaw_verify_token() {
     $token = get_option('openclaw_api_token');
@@ -164,7 +165,8 @@ function openclaw_verify_token() {
         return new WP_Error('missing_header', 'Missing X-OpenClaw-Token header', ['status' => 401]);
     }
     
-    if ($header !== $token) {
+    // Use hash_equals to prevent timing attacks
+    if (!hash_equals($token, $header)) {
         return new WP_Error('invalid_token', 'Invalid API token', ['status' => 401]);
     }
     
@@ -173,7 +175,7 @@ function openclaw_verify_token() {
 
 // Ping endpoint
 function openclaw_ping() {
-    return ['status' => 'ok', 'version' => '2.0.0', 'time' => current_time('mysql')];
+    return ['status' => 'ok', 'version' => '2.0.1', 'time' => current_time('mysql')];
 }
 
 // Site info
@@ -193,11 +195,11 @@ function openclaw_get_posts($request) {
     $args = [
         'post_type' => 'post',
         'post_status' => 'any',
-        'posts_per_page' => (int) $request->get_param('per_page') ?: 50,
-        'paged' => (int) $request->get_param('page') ?: 1,
+        'posts_per_page' => min((int) ($request->get_param('per_page') ?: 50), 100),
+        'paged' => max((int) ($request->get_param('page') ?: 1), 1),
     ];
     if ($search = $request->get_param('search')) {
-        $args['s'] = $search;
+        $args['s'] = substr(sanitize_text_field($search), 0, 200);
     }
     $posts = get_posts($args);
     return array_map('openclaw_format_post', $posts);
@@ -206,11 +208,28 @@ function openclaw_get_posts($request) {
 // Create post
 function openclaw_create_post($request) {
     $data = $request->get_json_params();
+    
+    // Validate post status
+    $allowed_statuses = ['draft', 'pending', 'private', 'publish'];
+    $status = sanitize_text_field($data['status'] ?? 'draft');
+    if (!in_array($status, $allowed_statuses, true)) {
+        $status = 'draft';
+    }
+    
+    // Validate author ID if provided
+    $author_id = (int) ($data['author_id'] ?? 1);
+    if ($author_id > 1) {
+        $user = get_user_by('id', $author_id);
+        if (!$user) {
+            return new WP_Error('invalid_author', 'Invalid author ID', ['status' => 400]);
+        }
+    }
+    
     $post_data = [
         'post_title' => sanitize_text_field($data['title'] ?? 'Untitled'),
         'post_content' => $data['content'] ?? '',
-        'post_status' => sanitize_text_field($data['status'] ?? 'draft'),
-        'post_author' => (int) ($data['author_id'] ?? 1),
+        'post_status' => $status,
+        'post_author' => $author_id,
     ];
     if (!empty($data['categories'])) {
         $post_data['post_category'] = array_map('intval', (array) $data['categories']);
@@ -230,11 +249,29 @@ function openclaw_update_post($request) {
     $id = (int) $request['id'];
     $data = $request->get_json_params();
     $post_data = ['ID' => $id];
-    if (isset($data['title'])) $post_data['post_title'] = sanitize_text_field($data['title']);
-    if (isset($data['content'])) $post_data['post_content'] = $data['content'];
-    if (isset($data['status'])) $post_data['post_status'] = sanitize_text_field($data['status']);
-    if (isset($data['categories'])) $post_data['post_category'] = array_map('intval', (array) $data['categories']);
-    if (isset($data['tags'])) $post_data['tags_input'] = array_map('intval', (array) $data['tags']);
+    
+    // Validate and sanitize fields
+    if (isset($data['title'])) {
+        $post_data['post_title'] = sanitize_text_field($data['title']);
+    }
+    if (isset($data['content'])) {
+        $post_data['post_content'] = $data['content'];
+    }
+    if (isset($data['status'])) {
+        $allowed_statuses = ['draft', 'pending', 'private', 'publish'];
+        $status = sanitize_text_field($data['status']);
+        if (!in_array($status, $allowed_statuses, true)) {
+            return new WP_Error('invalid_status', 'Invalid post status', ['status' => 400]);
+        }
+        $post_data['post_status'] = $status;
+    }
+    if (isset($data['categories'])) {
+        $post_data['post_category'] = array_map('intval', (array) $data['categories']);
+    }
+    if (isset($data['tags'])) {
+        $post_data['tags_input'] = array_map('intval', (array) $data['tags']);
+    }
+    
     $result = wp_update_post($post_data, true);
     if (is_wp_error($result)) return $result;
     return openclaw_format_post(get_post($id));
@@ -337,6 +374,15 @@ function openclaw_get_users() {
 
 // ===== PLUGIN MANAGEMENT =====
 
+// Validate plugin slug (lowercase alphanumeric with hyphens)
+function openclaw_validate_plugin_slug($slug) {
+    $slug = sanitize_key($slug);
+    if (!preg_match('/^[a-z0-9-]+$/', $slug)) {
+        return false;
+    }
+    return $slug;
+}
+
 // List installed plugins
 function openclaw_get_plugins() {
     if (!function_exists('get_plugins')) {
@@ -369,9 +415,12 @@ function openclaw_search_plugins($request) {
         require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
     }
     
-    $search = $request->get_param('q') ?: $request->get_param('search');
-    $page = (int) ($request->get_param('page') ?: 1);
-    $per_page = (int) ($request->get_param('per_page') ?: 20);
+    $search = sanitize_text_field($request->get_param('q') ?: $request->get_param('search'));
+    $page = max((int) ($request->get_param('page') ?: 1), 1);
+    $per_page = min((int) ($request->get_param('per_page') ?: 20), 100);
+    
+    // Limit search query length
+    $search = substr($search, 0, 200);
     
     $args = [
         'search' => $search,
@@ -413,11 +462,11 @@ function openclaw_search_plugins($request) {
 // Install plugin from WordPress.org
 function openclaw_install_plugin($request) {
     $data = $request->get_json_params();
-    $slug = sanitize_text_field($data['slug'] ?? '');
+    $slug = openclaw_validate_plugin_slug($data['slug'] ?? '');
     $activate = !empty($data['activate']);
     
     if (empty($slug)) {
-        return new WP_Error('missing_slug', 'Plugin slug is required', ['status' => 400]);
+        return new WP_Error('invalid_slug', 'Invalid plugin slug. Must be lowercase alphanumeric with hyphens.', ['status' => 400]);
     }
     
     // Include required files
@@ -498,7 +547,11 @@ function openclaw_install_plugin($request) {
 
 // Activate plugin
 function openclaw_activate_plugin($request) {
-    $slug = $request['slug'];
+    $slug = openclaw_validate_plugin_slug($request['slug']);
+    
+    if (empty($slug)) {
+        return new WP_Error('invalid_slug', 'Invalid plugin slug', ['status' => 400]);
+    }
     
     if (!function_exists('get_plugins')) {
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -534,7 +587,11 @@ function openclaw_activate_plugin($request) {
 
 // Deactivate plugin
 function openclaw_deactivate_plugin($request) {
-    $slug = $request['slug'];
+    $slug = openclaw_validate_plugin_slug($request['slug']);
+    
+    if (empty($slug)) {
+        return new WP_Error('invalid_slug', 'Invalid plugin slug', ['status' => 400]);
+    }
     
     if (!function_exists('get_plugins')) {
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -565,7 +622,11 @@ function openclaw_deactivate_plugin($request) {
 
 // Update plugin
 function openclaw_update_plugin($request) {
-    $slug = $request['slug'];
+    $slug = openclaw_validate_plugin_slug($request['slug']);
+    
+    if (empty($slug)) {
+        return new WP_Error('invalid_slug', 'Invalid plugin slug', ['status' => 400]);
+    }
     
     require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
     require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -605,7 +666,11 @@ function openclaw_update_plugin($request) {
 
 // Delete plugin
 function openclaw_delete_plugin($request) {
-    $slug = $request['slug'];
+    $slug = openclaw_validate_plugin_slug($request['slug']);
+    
+    if (empty($slug)) {
+        return new WP_Error('invalid_slug', 'Invalid plugin slug', ['status' => 400]);
+    }
     
     require_once ABSPATH . 'wp-admin/includes/plugin.php';
     require_once ABSPATH . 'wp-admin/includes/file.php';
