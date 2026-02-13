@@ -3,7 +3,7 @@ Contributors: openclaw
 Tags: api, rest, remote, management, openclaw
 Requires at least: 5.0
 Tested up to: 6.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -128,6 +128,14 @@ curl -X POST \
 | DELETE | `/plugins/{slug}` | plugins_delete | Delete plugin |
 
 == Changelog ==
+
+= 2.0.1 =
+* SECURITY: Fixed timing attack vulnerability in token verification (uses hash_equals)
+* SECURITY: Added post status validation (only draft, pending, private, publish allowed)
+* SECURITY: Added author ID validation (validates user exists before assignment)
+* Added plugin slug validation (lowercase alphanumeric with hyphens only)
+* Added search query length limits (max 200 characters)
+* Added pagination limits (max 100 per page, min page 1)
 
 = 2.0.0 =
 * Renamed from Lilith API to OpenClaw API
