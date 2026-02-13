@@ -3,10 +3,10 @@ Contributors: openclaw
 Tags: api, rest, remote, management, openclaw
 Requires at least: 5.0
 Tested up to: 6.4
-Stable tag: 2.0.2
+Stable tag: 2.0.3
 Requires PHP: 7.4
-License: AGPLv3.0 or later
-License URI: https://www.gnu.org/licenses/agpl-3.0.html
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 REST API for OpenClaw remote site management with fine-grained capability controls.
 
@@ -59,13 +59,6 @@ enabled in the settings. Tokens can be regenerated or revoked at any time.
 = Can I use this with other tools besides OpenClaw? =
 
 Yes! Any tool that can make HTTP requests with custom headers can use this API.
-
-= Why AGPLv3.0? =
-
-The AGPLv3.0 license ensures that anyone who modifies this software and makes it 
-available as a network service (such as a SaaS offering) must also share their 
-modifications under the same license terms. This prevents proprietary forks while 
-allowing full freedom for end users.
 
 == Usage ==
 
@@ -138,10 +131,12 @@ curl -X POST \
 
 == Changelog ==
 
+= 2.0.3 =
+* Changed license from AGPLv3.0 to GPLv2 or later for WordPress compatibility
+
 = 2.0.2 =
-* SECURITY: Changed license to AGPLv3.0 for stronger copyleft
 * SECURITY: Token now hashed before storage (tokens shown once on generation)
-* SECURITY: Fixed post type validation (can only modify 'post' type, not pages/attachments)
+* SECURITY: Fixed post type validation (can only modify 'post' type)
 * SECURITY: Added post existence check before update/delete
 * SECURITY: Removed email from users endpoint (privacy protection)
 * Added null checks in format_post function
@@ -166,6 +161,9 @@ curl -X POST \
 * Initial release
 
 == Upgrade Notice ==
+
+= 2.0.3 =
+License changed to GPLv2 or later. No functional changes.
 
 = 2.0.2 =
 **Important:** Token storage has changed. After updating, you will need to regenerate 
