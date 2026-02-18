@@ -141,37 +141,61 @@ class OpenClaw_FluentSupport_Module {
     }
     
     /**
-     * Get FluentSupport Response model
+     * Get FluentSupport Conversation model
      */
     private static function get_response_model() {
-        if (class_exists('FluentSupport\App\Models\Response')) {
-            return new \FluentSupport\App\Models\Response();
+        if (class_exists('FluentSupport\App\Models\Conversation')) {
+            return new \FluentSupport\App\Models\Conversation();
         }
         return null;
     }
     
     /**
-     * Create response using FluentSupport native model
+     * Create response using FluentSupport native ResponseService (triggers email notifications)
      */
     private static function create_response_native($ticket_id, $content, $agent_id) {
-        $response_model = self::get_response_model();
-        if ($response_model) {
-            try {
-                $response = $response_model->create([
-                    'ticket_id' => $ticket_id,
-                    'person_id' => $agent_id,
-                    'person_type' => 'agent',
-                    'conversation_type' => 'response',
-                    'content' => $content,
-                    'source' => 'web',
-                ]);
-                return $response ? $response->id : null;
-            } catch (\Exception $e) {
-                error_log('FluentSupport Response model error: ' . $e->getMessage());
+        // Check if FluentSupport ResponseService is available
+        if (!class_exists('FluentSupport\App\Services\Tickets\ResponseService')) {
+            error_log('FluentSupport ResponseService not available');
+            return null;
+        }
+        
+        try {
+            // Get the ticket
+            $ticket = \FluentSupport\App\Models\Ticket::find($ticket_id);
+            if (!$ticket) {
+                error_log('FluentSupport ticket not found: ' . $ticket_id);
                 return null;
             }
+            
+            // Get the agent (try by user_id first, then by ID)
+            $agent = \FluentSupport\App\Models\Agent::where('user_id', $agent_id)->first();
+            if (!$agent) {
+                $agent = \FluentSupport\App\Models\Agent::find($agent_id);
+            }
+            if (!$agent) {
+                error_log('FluentSupport agent not found: ' . $agent_id);
+                return null;
+            }
+            
+            // Use ResponseService to create response (triggers email notifications)
+            $responseService = new \FluentSupport\App\Services\Tickets\ResponseService();
+            $result = $responseService->createResponse([
+                'content' => $content,
+                'conversation_type' => 'response',
+                'source' => 'api',
+            ], $agent, $ticket);
+            
+            if ($result && isset($result['response'])) {
+                return $result['response']->id;
+            }
+            
+            error_log('FluentSupport ResponseService failed to create response');
+            return null;
+        } catch (\Exception $e) {
+            error_log('FluentSupport ResponseService error: ' . $e->getMessage());
+            return null;
         }
-        return null;
     }
 
     // === TICKETS ===
