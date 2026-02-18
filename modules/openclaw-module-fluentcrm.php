@@ -28,7 +28,7 @@ class OpenClaw_FluentCRM_Module {
     }
 
     private static function is_fluentcrm_active() {
-        return function_exists('openclaw_is_plugin_active') && openclaw_is_plugin_active('fluentcrm');
+        return function_exists('openclaw_is_plugin_active') && openclaw_is_plugin_active('fluent-crm');
     }
     
     /**
