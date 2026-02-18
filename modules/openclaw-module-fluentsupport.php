@@ -133,12 +133,43 @@ class OpenClaw_FluentSupport_Module {
         return null;
     }
     
-    /**
-     * Get FluentSupport Customer model
-     */
     private static function get_customer_model() {
         if (class_exists('FluentSupport\App\Models\Customer')) {
             return new \FluentSupport\App\Models\Customer();
+        }
+        return null;
+    }
+    
+    /**
+     * Get FluentSupport Response model
+     */
+    private static function get_response_model() {
+        if (class_exists('FluentSupport\App\Models\Response')) {
+            return new \FluentSupport\App\Models\Response();
+        }
+        return null;
+    }
+    
+    /**
+     * Create response using FluentSupport native model
+     */
+    private static function create_response_native($ticket_id, $content, $agent_id) {
+        $response_model = self::get_response_model();
+        if ($response_model) {
+            try {
+                $response = $response_model->create([
+                    'ticket_id' => $ticket_id,
+                    'person_id' => $agent_id,
+                    'person_type' => 'agent',
+                    'conversation_type' => 'response',
+                    'content' => $content,
+                    'source' => 'web',
+                ]);
+                return $response ? $response->id : null;
+            } catch (\Exception $e) {
+                error_log('FluentSupport Response model error: ' . $e->getMessage());
+                return null;
+            }
         }
         return null;
     }
@@ -400,38 +431,44 @@ class OpenClaw_FluentSupport_Module {
             return new WP_REST_Response(['error' => 'Ticket not found'], 404);
         }
         
-        // Get next serial number for this ticket
-        $serial = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT MAX(serial) FROM $responses_table WHERE ticket_id = %d",
-            $ticket_id
-        )) + 1;
+        // Try native FluentSupport model first
+        $response_id = self::create_response_native($ticket_id, $content, $agent_id);
         
-        // Generate content hash
-        $content_hash = md5($content);
-        
-        // Add response (using FluentSupport native column names)
-        $wpdb->insert($responses_table, [
-            'ticket_id' => $ticket_id,
-            'serial' => $serial,
-            'person_id' => $agent_id,
-            'conversation_type' => 'response',  // "response" or "note"
-            'content' => $content,
-            'source' => 'web',
-            'content_hash' => $content_hash,
-            'is_important' => 'no',
-            'created_at' => current_time('mysql'),
-            'updated_at' => current_time('mysql'),
-        ]);
-        
-        $response_id = $wpdb->insert_id;
-        
-        // Check for errors
+        // Fallback to direct database insert if native model failed
         if (!$response_id) {
-            return new WP_REST_Response([
-                'error' => 'Failed to insert response',
-                'db_error' => $wpdb->last_error,
-                'last_query' => $wpdb->last_query,
-            ], 500);
+            // Get next serial number for this ticket
+            $serial = (int)$wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(serial) FROM $responses_table WHERE ticket_id = %d",
+                $ticket_id
+            )) + 1;
+            
+            // Generate content hash
+            $content_hash = md5($content);
+            
+            // Add response (using FluentSupport native column names)
+            $wpdb->insert($responses_table, [
+                'ticket_id' => $ticket_id,
+                'serial' => $serial,
+                'person_id' => $agent_id,
+                'conversation_type' => 'response',  // "response" or "note"
+                'content' => $content,
+                'source' => 'web',
+                'content_hash' => $content_hash,
+                'is_important' => 'no',
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+            ]);
+            
+            $response_id = $wpdb->insert_id;
+            
+            // Check for errors
+            if (!$response_id) {
+                return new WP_REST_Response([
+                    'error' => 'Failed to insert response',
+                    'db_error' => $wpdb->last_error,
+                    'last_query' => $wpdb->last_query,
+                ], 500);
+            }
         }
         
         // Update ticket status and timestamp
