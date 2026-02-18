@@ -422,6 +422,46 @@ class OpenClaw_FluentCRM_Module {
         }
         
         $campaign_id = $wpdb->insert_id;
+        
+        // Create campaign emails for subscribers in target lists
+        $list_ids = $data['list_ids'] ?? [];
+        $subscriber_count = 0;
+        
+        if (!empty($list_ids)) {
+            $subscribers_table = $wpdb->prefix . 'fc_subscribers';
+            $lists_pivot = $wpdb->prefix . 'fc_subscriber_lists';
+            $campaign_emails_table = $wpdb->prefix . 'fc_campaign_emails';
+            
+            $list_placeholders = implode(',', array_fill(0, count($list_ids), '%d'));
+            
+            // Get subscribers from specified lists
+            $subscribers = $wpdb->get_results($wpdb->prepare(
+                "SELECT DISTINCT s.id, s.email, s.first_name, s.last_name 
+                 FROM $subscribers_table s 
+                 INNER JOIN $lists_pivot sl ON s.id = sl.subscriber_id 
+                 WHERE sl.list_id IN ($list_placeholders) AND s.status = 'subscribed'",
+                ...$list_ids
+            ));
+            
+            // Create campaign email records
+            foreach ($subscribers as $sub) {
+                $wpdb->insert($campaign_emails_table, [
+                    'campaign_id' => $campaign_id,
+                    'subscriber_id' => $sub->id,
+                    'email' => $sub->email,
+                    'first_name' => $sub->first_name,
+                    'last_name' => $sub->last_name,
+                    'status' => 'pending',
+                    'created_at' => current_time('mysql'),
+                    'updated_at' => current_time('mysql')
+                ]);
+                $subscriber_count++;
+            }
+            
+            // Update recipients count
+            $wpdb->update($table, ['recipients_count' => $subscriber_count], ['id' => $campaign_id]);
+        }
+        
         $campaign = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $campaign_id));
         
         return new WP_REST_Response([
@@ -429,6 +469,7 @@ class OpenClaw_FluentCRM_Module {
             'title' => $campaign->title,
             'status' => $campaign->status,
             'subject' => $campaign->email_subject,
+            'recipients_count' => (int)$campaign->recipients_count,
             'created_at' => $campaign->created_at,
             'message' => 'Campaign created as draft. Use /crm/campaigns/{id}/send to send it.'
         ], 201);
@@ -504,36 +545,43 @@ class OpenClaw_FluentCRM_Module {
             return new WP_REST_Response(['error' => 'Campaign not found'], 404);
         }
         
-        // Use FluentCRM's native Campaign model if available
+        // Check if campaign has emails queued
+        $emails_table = $wpdb->prefix . 'fc_campaign_emails';
+        $email_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $emails_table WHERE campaign_id = %d", $id
+        ));
+        
+        if ($email_count == 0) {
+            return new WP_REST_Response([
+                'error' => 'No recipients found for this campaign',
+                'hint' => 'Create campaign with list_ids to populate recipients, or add subscribers to the target list first'
+            ], 400);
+        }
+        
+        // Update campaign status to processing/scheduled
+        $wpdb->update($table, [
+            'status' => 'pending',
+            'scheduled_at' => current_time('mysql')
+        ], ['id' => $id]);
+        
+        // Trigger FluentCRM's cron to process pending emails
+        // This hook tells FluentCRM to send pending campaign emails
         if (class_exists('FluentCRM\App\Models\Campaign')) {
             $campaignModel = \FluentCRM\App\Models\Campaign::find($id);
             if ($campaignModel) {
-                // Calculate subscribers from list/tag settings
-                $campaignModel->recipients_count = $campaignModel->getRecipientsCount();
-                $campaignModel->status = 'pending';  // Change from draft to pending
-                $campaignModel->save();
-                
-                // Trigger FluentCRM's email processing
                 do_action('fluentcrm_campaign_status_changed', $campaignModel, 'pending');
-                
-                return new WP_REST_Response([
-                    'success' => true,
-                    'message' => 'Campaign queued for sending',
-                    'campaign_id' => $id,
-                    'recipients' => $campaignModel->recipients_count
-                ], 200);
             }
         }
         
-        // Fallback: Update status to pending and trigger hook
-        $wpdb->update($table, ['status' => 'pending'], ['id' => $id]);
-        do_action('fluentcrm_campaign_scheduled', $campaign);
+        // Also trigger general campaign process hook
+        do_action('fluentcrm_scheduled_hourly_tasks');
         
         return new WP_REST_Response([
             'success' => true,
-            'message' => 'Campaign send initiated (fallback mode)',
+            'message' => 'Campaign queued for sending',
             'campaign_id' => $id,
-            'note' => 'FluentCRM Campaign model not available - recipients may not be calculated'
+            'recipients' => (int)$email_count,
+            'note' => 'FluentCRM will process emails via its scheduled tasks. May take a few minutes.'
         ], 200);
     }
 
