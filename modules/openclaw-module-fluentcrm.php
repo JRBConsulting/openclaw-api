@@ -504,17 +504,36 @@ class OpenClaw_FluentCRM_Module {
             return new WP_REST_Response(['error' => 'Campaign not found'], 404);
         }
         
-        // Trigger FluentCRM's campaign send
-        if (function_exists('fluentcrm_scheduled_campaign')) {
-            fluentcrm_scheduled_campaign($campaign);
-        } else {
-            do_action('fluentcrm_campaign_scheduled', $campaign);
+        // Use FluentCRM's native Campaign model if available
+        if (class_exists('FluentCRM\App\Models\Campaign')) {
+            $campaignModel = \FluentCRM\App\Models\Campaign::find($id);
+            if ($campaignModel) {
+                // Calculate subscribers from list/tag settings
+                $campaignModel->recipients_count = $campaignModel->getRecipientsCount();
+                $campaignModel->status = 'pending';  // Change from draft to pending
+                $campaignModel->save();
+                
+                // Trigger FluentCRM's email processing
+                do_action('fluentcrm_campaign_status_changed', $campaignModel, 'pending');
+                
+                return new WP_REST_Response([
+                    'success' => true,
+                    'message' => 'Campaign queued for sending',
+                    'campaign_id' => $id,
+                    'recipients' => $campaignModel->recipients_count
+                ], 200);
+            }
         }
+        
+        // Fallback: Update status to pending and trigger hook
+        $wpdb->update($table, ['status' => 'pending'], ['id' => $id]);
+        do_action('fluentcrm_campaign_scheduled', $campaign);
         
         return new WP_REST_Response([
             'success' => true,
-            'message' => 'Campaign send initiated',
-            'campaign_id' => $campaign->id
+            'message' => 'Campaign send initiated (fallback mode)',
+            'campaign_id' => $id,
+            'note' => 'FluentCRM Campaign model not available - recipients may not be calculated'
         ], 200);
     }
 
