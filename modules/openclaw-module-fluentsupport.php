@@ -400,12 +400,20 @@ class OpenClaw_FluentSupport_Module {
             return new WP_REST_Response(['error' => 'Ticket not found'], 404);
         }
         
-        // Add response
+        // Get next serial number for this ticket
+        $serial = (int)$wpdb->get_var($wpdb->prepare(
+            "SELECT MAX(serial) FROM $responses_table WHERE ticket_id = %d",
+            $ticket_id
+        )) + 1;
+        
+        // Add response (using FluentSupport native column names)
         $wpdb->insert($responses_table, [
             'ticket_id' => $ticket_id,
+            'serial' => $serial,
             'person_id' => $agent_id,
-            'person_type' => 'agent',
+            'conversation_type' => 'response',  // "response" or "note"
             'content' => $content,
+            'source' => 'web',
             'created_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
         ]);
