@@ -465,19 +465,19 @@ class OpenClaw_FluentCRM_Module {
         
         if (!empty($list_ids)) {
             $subscribers_table = $wpdb->prefix . 'fc_subscribers';
-            $pivot_table = $wpdb->prefix . 'fc_subscriber_pivot';  // FluentCRM uses unified pivot table
+            $pivot_table = $wpdb->prefix . 'fc_subscriber_pivot';
             $campaign_emails_table = $wpdb->prefix . 'fc_campaign_emails';
             
             $list_placeholders = implode(',', array_fill(0, count($list_ids), '%d'));
             
-            // Get subscribers from specified lists using pivot table
-            // FluentCRM uses full class name for object_type: 'FluentCrm\App\Models\Lists'
+            // Get subscribers from specified lists
+            // FluentCRM uses full class name for object_type
             $subscribers = $wpdb->get_results($wpdb->prepare(
                 "SELECT DISTINCT s.id, s.email, s.first_name, s.last_name 
                  FROM $subscribers_table s 
                  INNER JOIN $pivot_table p ON s.id = p.subscriber_id 
                  WHERE p.object_id IN ($list_placeholders) 
-                 AND p.object_type = 'FluentCrm\\App\\Models\\Lists' 
+                 AND p.object_type LIKE '%Lists' 
                  AND s.status = 'subscribed'",
                 ...$list_ids
             ));
