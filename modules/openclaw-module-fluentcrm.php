@@ -487,15 +487,44 @@ class OpenClaw_FluentCRM_Module {
             // Update the CAMPAIGNS table (not subscribers table)
             $wpdb->update($wpdb->prefix . 'fc_campaigns', ['recipients_count' => $subscriber_count], ['id' => $campaign_id]);
             
-            // DEBUG info
-            $debug_info = [
-                'sql' => $sql,
-                'subscribers_found' => count($subscribers),
-                'subscribers_inserted' => $inserted_count,
-                'insert_errors' => $insert_errors,
-                'campaign_emails_table' => $campaign_emails_table,
-                'campaign_id' => $campaign_id
-            ];
+            // DEBUG: Update debug info with insert results
+            $debug_info['subscribers_inserted'] = $inserted_count;
+            $debug_info['insert_errors'] = $insert_errors;
+            error_log("OpenClaw API campaign final count: $subscriber_count");
+        }
+        
+        $campaign = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $campaign_id));
+        
+        return new WP_REST_Response([
+            'id' => (int)$campaign->id,
+            'title' => $campaign->title,
+            'status' => $campaign->status,
+            'subject' => $campaign->email_subject,
+            'recipients_count' => (int)$campaign->recipients_count,
+            'created_at' => $campaign->created_at,
+            'message' => 'Campaign created as draft. Use /crm/campaigns/{id}/send to send it.',
+            '_debug' => $debug_info ?? null
+        ], 201);
+    }
+
+    public static function update_campaign($request) {
+        global $wpdb;
+        $id = (int)$request->get_param('id');
+        $data = $request->get_json_params();
+        
+        $table = $wpdb->prefix . 'fc_campaigns';
+        $campaign = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id));
+        
+        if (!$campaign) {
+            return new WP_REST_Response(['error' => 'Campaign not found'], 404);
+        }
+        
+        if ($campaign->status !== 'draft') {
+            return new WP_REST_Response(['error' => 'Only draft campaigns can be updated'], 400);
+        }
+        
+        // Allowed fields to update
+        $allowed_fields = ['title', 'email_subject', 'email_preheader', 'email_body', 
                           'email_body_plain', 'from_name', 'from_email', 'reply_to_name', 'reply_to_email'];
         $update_data = array_intersect_key($data, array_flip($allowed_fields));
         
