@@ -589,24 +589,48 @@ class OpenClaw_FluentCRM_Module {
             'scheduled_at' => current_time('mysql')
         ], ['id' => $id]);
         
-        // Trigger FluentCRM's cron to process pending emails
-        // This hook tells FluentCRM to send pending campaign emails
+        // Try to trigger immediate sending via FluentCRM's methods
+        $emails_sent = 0;
+        $send_error = null;
         if (class_exists('FluentCRM\App\Models\Campaign')) {
             $campaignModel = \FluentCRM\App\Models\Campaign::find($id);
             if ($campaignModel) {
+                // Method 1: Try to run campaign email processor
+                if (method_exists($campaignModel, 'send')) {
+                    try {
+                        $campaignModel->send();
+                        $emails_sent = $email_count;
+                    } catch (\Exception $e) {
+                        $send_error = $e->getMessage();
+                    }
+                }
+                
+                // Method 2: Trigger status change hook
                 do_action('fluentcrm_campaign_status_changed', $campaignModel, 'pending');
             }
         }
         
-        // Also trigger general campaign process hook
+        // Method 3: Also trigger general campaign process hook
         do_action('fluentcrm_scheduled_hourly_tasks');
+        
+        if ($emails_sent > 0) {
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => 'Campaign sent immediately',
+                'campaign_id' => $id,
+                'recipients' => $emails_sent,
+                'note' => 'Emails sent via FluentCRM direct send'
+            ], 200);
+        }
         
         return new WP_REST_Response([
             'success' => true,
             'message' => 'Campaign queued for sending',
             'campaign_id' => $id,
             'recipients' => (int)$email_count,
-            'note' => 'FluentCRM will process emails via its scheduled tasks. May take a few minutes.'
+            'note' => 'FluentCRM will process emails via its scheduled tasks. May take a few minutes.',
+            '_debug' => ['send_error' => $send_error]
+        ], 200);
         ], 200);
     }
 
