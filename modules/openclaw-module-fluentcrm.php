@@ -435,7 +435,7 @@ class OpenClaw_FluentCRM_Module {
             
             // Get subscribers from specified lists
             // FluentCRM uses full class name for object_type
-            $subscribers = $wpdb->get_results($wpdb->prepare(
+            $sql = $wpdb->prepare(
                 "SELECT DISTINCT s.id, s.email, s.first_name, s.last_name 
                  FROM $subscribers_table s 
                  INNER JOIN $pivot_table p ON s.id = p.subscriber_id 
@@ -443,11 +443,14 @@ class OpenClaw_FluentCRM_Module {
                  AND p.object_type = 'list' 
                  AND s.status = 'subscribed'",
                 ...$list_ids
-            ));
+            );
+            error_log("OpenClaw API - Campaign Create SQL: " . $sql);
+            $subscribers = $wpdb->get_results($sql);
+            error_log("OpenClaw API - Found subscribers: " . count($subscribers));
             
             // Create campaign email records
             foreach ($subscribers as $sub) {
-                $wpdb->insert($campaign_emails_table, [
+                $insert_result = $wpdb->insert($campaign_emails_table, [
                     'campaign_id' => $campaign_id,
                     'subscriber_id' => $sub->id,
                     'email' => $sub->email,
@@ -457,7 +460,10 @@ class OpenClaw_FluentCRM_Module {
                     'created_at' => current_time('mysql'),
                     'updated_at' => current_time('mysql')
                 ]);
-                $subscriber_count++;
+                error_log("OpenClaw API - Insert result for {$sub->email}: " . ($insert_result ? "success" : "failed: " . $wpdb->last_error));
+                if ($insert_result) {
+                    $subscriber_count++;
+                }
             }
             
             // Update recipients count
