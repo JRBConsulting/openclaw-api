@@ -441,7 +441,7 @@ class OpenClaw_FluentCRM_Module {
                  FROM $subscribers_table s 
                  INNER JOIN $pivot_table p ON s.id = p.subscriber_id 
                  WHERE p.object_id IN ($list_placeholders) 
-                 AND p.object_type LIKE '%Lists' 
+                 AND p.object_type = 'list' 
                  AND s.status = 'subscribed'",
                 ...$list_ids
             ));
