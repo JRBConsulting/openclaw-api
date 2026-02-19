@@ -426,22 +426,22 @@ class OpenClaw_FluentCRM_Module {
         $list_ids = $data['list_ids'] ?? [];
         $subscriber_count = 0;
         
-        if (!empty($list_ids) && class_exists('FluentCRM\App\Models\Subscriber') && class_exists('FluentCRM\App\Models\Lists')) {
+        if (!empty($list_ids)) {
             $campaign_emails_table = $wpdb->prefix . 'fc_campaign_emails';
             
-            // Get subscribers by using FluentCRM's lists relationship
-            // First get all subscribers, then filter by list membership
-            $allSubscribers = \FluentCRM\App\Models\Subscriber::whereIn('status', ['subscribed', 'pending'])->get();
-            $subscribers = [];
+            // Use raw SQL with correct table name (single prefix)
+            // The working list_subscribers function uses this pattern
+            $list_id = (int)$list_ids[0]; // For now just use first list ID
             
-            foreach ($allSubscribers as $sub) {
-                $subscriberLists = $sub->lists()->whereIn('id', $list_ids)->get();
-                if ($subscriberLists->count() > 0) {
-                    $subscribers[] = $sub;
-                }
-            }
+            $sql = "SELECT s.id, s.email, s.first_name, s.last_name 
+                 FROM {$wpdb->prefix}fc_subscribers s 
+                 JOIN {$wpdb->prefix}fc_subscriber_pivot p ON s.id = p.subscriber_id 
+                 WHERE p.object_id = {$list_id} 
+                 AND p.object_type = 'list'";
             
-            error_log("OpenClaw API campaign found: " . count($subscribers) . " subscribers via lists()");
+            $subscribers = $wpdb->get_results($sql);
+            error_log("OpenClaw API campaign SQL: $sql");
+            error_log("OpenClaw API campaign found: " . count($subscribers) . " subscribers");
             
             error_log("OpenClaw API campaign Eloquent query found: " . count($subscribers) . " subscribers");
             
