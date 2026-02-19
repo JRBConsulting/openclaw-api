@@ -429,26 +429,24 @@ class OpenClaw_FluentCRM_Module {
         if (!empty($list_ids)) {
             $campaign_emails_table = $wpdb->prefix . 'fc_campaign_emails';
             
-            // EXACT copy of list_subscribers query pattern
-            $table = $wpdb->prefix . 'fc_subscribers';
+            // Use different variable names to avoid overwriting $table
+            $subscribers_table = $wpdb->prefix . 'fc_subscribers';
             $pivot_table = $wpdb->prefix . 'fc_subscriber_pivot';
             
             $where = 'WHERE 1=1';
             $join = '';
             
-            // Use first list ID for now (matches list_subscribers pattern)
+            // Use first list ID for now
             $list_id = (int)$list_ids[0];
             $join .= " JOIN $pivot_table sl ON s.id = sl.subscriber_id AND sl.object_type = 'list'";
             $where .= " AND sl.object_id = " . (int)$list_id;
             
             $sql = "SELECT DISTINCT s.id, s.email, s.first_name, s.last_name 
-                 FROM $table s $join $where";
+                 FROM $subscribers_table s $join $where";
             
             $subscribers = $wpdb->get_results($sql);
             error_log("OpenClaw API campaign SQL: $sql");
             error_log("OpenClaw API campaign results: " . count($subscribers));
-            
-            error_log("OpenClaw API campaign Eloquent query found: " . count($subscribers) . " subscribers");
             
             // Create campaign email records
             foreach ($subscribers as $sub) {
@@ -467,7 +465,8 @@ class OpenClaw_FluentCRM_Module {
                 }
             }
             
-            $wpdb->update($table, ['recipients_count' => $subscriber_count], ['id' => $campaign_id]);
+            // Update the CAMPAIGNS table (not subscribers table)
+            $wpdb->update($wpdb->prefix . 'fc_campaigns', ['recipients_count' => $subscriber_count], ['id' => $campaign_id]);
             error_log("OpenClaw API campaign final count: $subscriber_count");
         }
         
