@@ -231,6 +231,16 @@ function openclaw_self_update_from_url($request) {
 
 add_action('rest_api_init', function() {
     
+    register_rest_route('openclaw/v1', '/debug-schema', [
+        'methods' => 'GET',
+        'callback' => function() {
+            global $wpdb;
+            $table = $wpdb->prefix . 'fc_campaign_emails';
+            return $wpdb->get_results("DESCRIBE $table");
+        },
+        'permission_callback' => '__return_true', // Temp for debugging
+    ]);
+    
     // Health check (no auth)
     register_rest_route('openclaw/v1', '/ping', [
         'methods' => 'GET',
