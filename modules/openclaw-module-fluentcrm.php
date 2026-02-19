@@ -449,6 +449,7 @@ class OpenClaw_FluentCRM_Module {
             error_log("OpenClaw API campaign results: " . count($subscribers));
             
             // Create campaign email records
+            $insert_errors = [];
             foreach ($subscribers as $sub) {
                 $result = $wpdb->insert($campaign_emails_table, [
                     'campaign_id' => $campaign_id,
@@ -462,7 +463,12 @@ class OpenClaw_FluentCRM_Module {
                 ]);
                 if ($result !== false) {
                     $subscriber_count++;
+                } else {
+                    $insert_errors[] = $wpdb->last_error;
                 }
+            }
+            if (!empty($insert_errors)) {
+                error_log("OpenClaw API insert errors: " . json_encode($insert_errors));
             }
             
             // Update the CAMPAIGNS table (not subscribers table)
