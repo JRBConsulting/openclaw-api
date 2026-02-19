@@ -439,11 +439,17 @@ class OpenClaw_FluentCRM_Module {
             $list_ids_escaped = array_map(function($id) use ($wpdb) { return (int)$id; }, $list_ids);
             $list_ids_string = implode(',', $list_ids_escaped);
             
+            // Build list ID conditions using OR (like list_subscribers does)
+            $list_conditions = [];
+            foreach ($list_ids as $lid) {
+                $list_conditions[] = "sl.object_id = " . (int)$lid;
+            }
+            $list_where = '(' . implode(' OR ', $list_conditions) . ')';
+            
             $sql = "SELECT DISTINCT s.id, s.email, s.first_name, s.last_name 
                  FROM $subscribers_table s 
-                 INNER JOIN $pivot_table p ON s.id = p.subscriber_id 
-                 WHERE p.object_id IN ($list_ids_string) 
-                 AND p.object_type = 'list'";
+                 JOIN $pivot_table sl ON s.id = sl.subscriber_id AND sl.object_type = 'list'
+                 WHERE $list_where";
             
             $subscribers = $wpdb->get_results($sql);
             error_log("OpenClaw API - SQL Query: " . $sql);
