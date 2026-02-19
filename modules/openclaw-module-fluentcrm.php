@@ -451,8 +451,11 @@ class OpenClaw_FluentCRM_Module {
                  FROM $subscribers_table s $join $where";
             
             $subscribers = $wpdb->get_results($sql);
-            error_log("OpenClaw API campaign SQL: $sql");
-            error_log("OpenClaw API campaign results: " . count($subscribers));
+            
+            // DEBUG: Log the query and results
+            error_log("OpenClaw API DEBUG: SQL = " . $sql);
+            error_log("OpenClaw API DEBUG: Subscribers found = " . count($subscribers));
+            error_log("OpenClaw API DEBUG: Last error = " . $wpdb->last_error);
             
             // Create campaign email records
             foreach ($subscribers as $sub) {
