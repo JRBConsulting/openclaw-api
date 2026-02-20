@@ -261,7 +261,8 @@ class OpenClaw_FluentCRM_Module {
         }
 
         $formatted = self::format_subscriber($subscriber);
-        $formatted['debug_attributes'] = $subscriber->getAttributes();
+        $formatted['debug_v'] = '2.6.48';
+        $formatted['debug_attributes'] = $subscriber->toArray();
 
         return new WP_REST_Response($formatted, 200);
     }
