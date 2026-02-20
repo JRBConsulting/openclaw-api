@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OpenClaw API
  * Description: WordPress REST API for OpenClaw remote site management
- * Version: 2.6.49
+ * Version: 2.6.50
  * Author: OpenClaw
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('OPENCLAW_API_VERSION', '2.6.49');
+define('OPENCLAW_API_VERSION', '2.6.50');
 define('OPENCLAW_API_GITHUB_REPO', 'openclaw/openclaw-api');
 
 // GitHub Updater Integration
@@ -373,6 +373,28 @@ add_action('rest_api_init', function() {
     ]);
     
     // Plugin/Theme Upload from ZIP
+    register_rest_route('openclaw/v1', '/debug/modules', [
+        'methods' => 'GET',
+        'callback' => function() {
+            $dir = plugin_dir_path(__FILE__) . 'modules/';
+            $files = array_diff(scandir($dir), ['.', '..']);
+            $details = [];
+            foreach ($files as $file) {
+                $details[$file] = [
+                    'size' => filesize($dir . $file),
+                    'mtime' => date('Y-m-d H:i:s', filemtime($dir . $file)),
+                    'content_sample' => substr(file_get_contents($dir . $file), 0, 500)
+                ];
+            }
+            return new WP_REST_Response([
+                'dir' => $dir,
+                'files' => $details,
+                'plugin_version' => OPENCLAW_API_VERSION
+            ], 200);
+        },
+        'permission_callback' => 'openclaw_verify_token',
+    ]);
+
     register_rest_route('openclaw/v1', '/plugins/upload', [
         'methods' => 'POST',
         'callback' => 'openclaw_upload_plugin',
