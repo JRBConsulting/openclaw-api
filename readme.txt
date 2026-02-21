@@ -2,8 +2,8 @@
 Contributors: jrbconsulting
 Tags: api, remote, openclaw
 Requires at least: 5.6
-Tested up to: 6.7.1
-Stable tag: 2.7.5
+Tested up to: 6.9
+Stable tag: 2.7.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
