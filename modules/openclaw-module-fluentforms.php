@@ -52,10 +52,20 @@ class OpenClaw_FluentForms_Module {
             'callback' => [__CLASS__, 'list_forms'],
             'permission_callback' => function() { return openclaw_verify_token_and_can('forms_read'); },
         ]);
+        register_rest_route('openclaw/v1', '/forms', [
+            'methods' => 'POST',
+            'callback' => [__CLASS__, 'create_form'],
+            'permission_callback' => function() { return openclaw_verify_token_and_can('forms_create'); },
+        ]);
         register_rest_route('openclaw/v1', '/forms/(?P<id>\d+)', [
             'methods' => 'GET',
             'callback' => [__CLASS__, 'get_form'],
             'permission_callback' => function() { return openclaw_verify_token_and_can('forms_read'); },
+        ]);
+        register_rest_route('openclaw/v1', '/forms/(?P<id>\d+)', [
+            'methods' => 'PUT',
+            'callback' => [__CLASS__, 'update_form'],
+            'permission_callback' => function() { return openclaw_verify_token_and_can('forms_update'); },
         ]);
 
         // Entries
@@ -135,6 +145,60 @@ class OpenClaw_FluentForms_Module {
             'created_at' => $form->created_at,
             'updated_at' => $form->updated_at
         ], 200);
+    }
+
+    public static function create_form($request) {
+        $title = $request->get_param('title');
+        $fields = $request->get_param('fields');
+        $status = $request->get_param('status') ?: 'published';
+
+        if (empty($title)) {
+            return new WP_REST_Response(['error' => 'Title is required'], 400);
+        }
+
+        $form_fields = is_array($fields) ? json_encode($fields) : $fields;
+
+        $form = \FluentForm\App\Models\Form::create([
+            'title' => $title,
+            'form_fields' => $form_fields,
+            'status' => $status,
+            'form_type' => 'form',
+            'created_by' => get_current_user_id() ?: 1,
+            'created_at' => current_time('mysql'),
+            'updated_at' => current_time('mysql')
+        ]);
+
+        if (!$form) {
+            return new WP_REST_Response(['error' => 'Failed to create form'], 500);
+        }
+
+        return new WP_REST_Response([
+            'success' => true,
+            'id' => $form->id,
+            'title' => $form->title,
+            'shortcode' => '[fluentform id="' . $form->id . '"]'
+        ], 201);
+    }
+
+    public static function update_form($request) {
+        $form = \FluentForm\App\Models\Form::find($request->get_param('id'));
+
+        if (!$form) {
+            return new WP_REST_Response(['error' => 'Form not found'], 404);
+        }
+
+        $title = $request->get_param('title');
+        $fields = $request->get_param('fields');
+        $status = $request->get_param('status');
+
+        if ($title) $form->title = $title;
+        if ($fields) $form->form_fields = is_array($fields) ? json_encode($fields) : $fields;
+        if ($status) $form->status = $status;
+
+        $form->updated_at = current_time('mysql');
+        $form->save();
+
+        return new WP_REST_Response(['success' => true, 'id' => $form->id], 200);
     }
 
     // === ENTRIES ===
