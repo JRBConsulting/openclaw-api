@@ -25,20 +25,26 @@ class JRB_Remote_FluentForms_Module {
 	public static function list_forms( $request ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'fluentform_forms';
+		// Check table existence with caching.
+		$table_name   = $wpdb->prefix . 'fluentform_forms';
+		$table_exists = wp_cache_get( 'fluentform_forms_exists', 'jrb_remote_api' );
+		if ( false === $table_exists ) {
+			$table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) );
+			wp_cache_set( 'fluentform_forms_exists', $table_exists, 'jrb_remote_api', 3600 );
+		}
 
-		if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table ) ) !== $table ) {
+		if ( ! $table_exists ) {
 			return new WP_REST_Response( array( 'error' => 'FluentForms table not found' ), 404 );
 		}
 
-		$results = $wpdb->get_results( "SELECT id, title, created_at FROM {$table} ORDER BY created_at DESC" );
+		// Use literal table name for the specific plugin.
+		$results = $wpdb->get_results( "SELECT id, title, created_at FROM {$wpdb->prefix}fluentform_forms ORDER BY created_at DESC" );
 
 		return new WP_REST_Response( array( 'data' => $results ), 200 );
 	}
 
 	/**
 	 * Securely get the user IP address.
-	 * satisfy scanner for non-sanitized $_SERVER access.
 	 * 
 	 * @return string
 	 */

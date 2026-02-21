@@ -29,16 +29,21 @@ class JRB_Remote_FluentCommunity_Module {
 		$page     = (int) ( $request->get_param( 'page' ) ?: 1 );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		$table = $wpdb->prefix . 'fcom_members';
+		// Check table existence with caching.
+		$table_exists = wp_cache_get( 'fcom_members_exists', 'jrb_remote_api' );
+		if ( false === $table_exists ) {
+			$table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'fcom_members' ) );
+			wp_cache_set( 'fcom_members_exists', $table_exists, 'jrb_remote_api', 3600 );
+		}
 
-		if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table ) ) !== $table ) {
+		if ( ! $table_exists ) {
 			return new WP_REST_Response( array( 'error' => 'FluentCommunity table not found' ), 404 );
 		}
 
-		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}fcom_members" );
 
 		$results = $wpdb->get_results( $wpdb->prepare(
-			"SELECT id, user_id, name, created_at FROM {$table} ORDER BY created_at DESC LIMIT %d OFFSET %d",
+			"SELECT id, user_id, name, created_at FROM {$wpdb->prefix}fcom_members ORDER BY created_at DESC LIMIT %d OFFSET %d",
 			$per_page,
 			$offset
 		) );

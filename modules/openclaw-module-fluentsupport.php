@@ -30,29 +30,36 @@ class JRB_Remote_FluentSupport_Module {
 		$offset   = ( $page - 1 ) * $per_page;
 		$status   = sanitize_text_field( $request->get_param( 'status' ) );
 
-		$table_tickets = $wpdb->prefix . 'fs_tickets';
+		// Check table existence with caching.
+		$table_exists = wp_cache_get( 'fs_tickets_exists', 'jrb_remote_api' );
+		if ( false === $table_exists ) {
+			$table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'fs_tickets' ) );
+			wp_cache_set( 'fs_tickets_exists', $table_exists, 'jrb_remote_api', 3600 );
+		}
 
-		if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_tickets ) ) !== $table_tickets ) {
+		if ( ! $table_exists ) {
 			return new WP_REST_Response( array( 'error' => 'FluentSupport table not found' ), 404 );
 		}
 
-		$where  = 'WHERE 1=1';
-		$params = array();
-
 		if ( ! empty( $status ) ) {
-			$where .= ' AND status = %s';
-			$params[] = $status;
+			$total = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}fs_tickets WHERE status = %s",
+				$status
+			) );
+			$results = $wpdb->get_results( $wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}fs_tickets WHERE status = %s ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				$status,
+				$per_page,
+				$offset
+			) );
+		} else {
+			$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}fs_tickets" );
+			$results = $wpdb->get_results( $wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}fs_tickets ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				$per_page,
+				$offset
+			) );
 		}
-
-		$total = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$table_tickets} {$where}",
-			$params
-		) );
-
-		$params[]     = $per_page;
-		$params[]     = $offset;
-		$results_query = $wpdb->prepare( "SELECT * FROM {$table_tickets} {$where} ORDER BY created_at DESC LIMIT %d OFFSET %d", $params );
-		$results       = $wpdb->get_results( $results_query );
 
 		return new WP_REST_Response( array(
 			'data' => $results,

@@ -11,6 +11,9 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 == Short Description ==
 Securely bridge OpenClaw to your WordPress site for automated management.
 
+== Short Description ==
+Securely bridge OpenClaw to your WordPress site for automated management.
+
 == Description ==
 The JRB Remote Site API provides a secure bridge for OpenClaw to manage WordPress sites remotely. It enables automated post management, media handling, and integration with popular plugins like FluentCRM and FluentSupport.
 
