@@ -11,7 +11,6 @@ class JRB_Remote_Module_Loader {
 	public static function init() {
 		$modules = array(
 			'media',
-			'posts',
 			'fluentcrm',
 			'fluentsupport',
 			'fluentcommunity',
