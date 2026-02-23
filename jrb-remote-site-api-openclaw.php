@@ -2,7 +2,7 @@
 /**
  * Plugin Name: JRB Remote Site API for OpenClaw
  * Description: WordPress REST API for OpenClaw remote site management
- * Version: 6.2.0
+ * Version: 6.3.0
  * Author: JRB Consulting
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('OPENCLAW_API_VERSION', '6.2.0');
+define('OPENCLAW_API_VERSION', '6.3.0');
 define('OPENCLAW_API_GITHUB_REPO', 'JRBConsulting/jrb-remote-site-api-openclaw');
 
 // GitHub Updater Integration
@@ -1261,7 +1261,7 @@ function openclaw_is_plugin_active($plugin_slug) {
 // Load optional modules (each auto-detects if its plugin is installed)
 // Hook at priority 1 so modules can use plugins_loaded at higher priorities
 add_action('plugins_loaded', function() {
-    $modules_loader = __DIR__ . '/modules/openclaw-modules.php';
+    $modules_loader = __DIR__ . '/modules/modules-loader.php';
     if (file_exists($modules_loader)) {
         require_once $modules_loader;
     }
