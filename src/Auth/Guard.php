@@ -10,10 +10,10 @@ class Guard {
     }
 
     public static function verify_token() {
-        $header = isset($_SERVER['HTTP_X_OPENCLAW_TOKEN']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_OPENCLAW_TOKEN'])) : '';
+        $header = isset($_SERVER['HTTP_X_JRB_TOKEN']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_JRB_TOKEN'])) : '';
         
         if (empty($header)) {
-            return new \WP_Error('missing_header', 'Missing X-OpenClaw-Token header', ['status' => 401]);
+            return new \WP_Error('missing_header', 'Missing X-JRB-Token header', ['status' => 401]);
         }
         
         // Hashed check (Preferred)

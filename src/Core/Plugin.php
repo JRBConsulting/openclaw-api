@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) exit;
 
 class Plugin {
     const VERSION = '6.4.0';
-    const API_NAMESPACE = 'openclaw/v1'; // Preserving existing namespace for compatibility
+    const API_NAMESPACE = 'jrbremoteapi/v1'; // Preserving existing namespace for compatibility
     const TEXT_DOMAIN = 'jrb-remote-site-api-for-openclaw';
     const GITHUB_REPO = 'JRBConsulting/jrb-remote-site-api-openclaw';
 

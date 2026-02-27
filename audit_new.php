@@ -13,7 +13,7 @@ echo "\n--- REFAC-SECURITY AUDIT START ---\n";
 
 // 1. Token Verification (Restored hashed logic)
 update_option('openclaw_api_token_hash', wp_hash('jrb-secret'));
-$_SERVER['HTTP_X_OPENCLAW_TOKEN'] = 'jrb-secret';
+$_SERVER['HTTP_X_JRB_TOKEN'] = 'jrb-secret';
 
 if (Guard::verify_token() === true) {
     echo "✅ [AUTH] PASS: Restored Token Hashing logic verified.\n";
@@ -40,7 +40,7 @@ if (empty($sql_concats)) {
 
 // 4. Persistence Check
 if (defined('\JRB\RemoteApi\Core\Plugin::API_NAMESPACE')) {
-    echo "✅ [ARCH] PASS: Core namespace 'openclaw/v1' preserved for compatibility.\n";
+    echo "✅ [ARCH] PASS: Core namespace 'jrbremoteapi/v1' preserved for compatibility.\n";
 }
 
 echo "--- AUDIT COMPLETE ---\n";
